@@ -81,8 +81,6 @@ RUN set -ex \
         curl -sL "https://github.com/kelseyhightower/confd/releases/download/v$CONFDVERSION/confd-$CONFDVERSION-linux-$(dpkg --print-architecture)" \
             > /usr/local/bin/confd && chmod +x /usr/local/bin/confd; \
     fi \
-    # Prepare client cert for HAProxy
-    && cat /etc/ssl/private/ssl-cert-snakeoil.key  /etc/ssl/certs/ssl-cert-snakeoil.pem > /etc/ssl/private/ssl-cert-snakeoil.crt \
 \
     # Clean up all useless packages and some files
     && apt-get purge -y --allow-remove-essential python3-pip gzip bzip2 util-linux e2fsprogs \
@@ -184,13 +182,10 @@ RUN sed -i 's/env python/&3/' /patroni*.py \
     && sed -i 's/^\(name\|etcd\|  host\|  authentication\|  connect_address\|  parameters\):/#&/' postgres?.yml \
     && sed -i 's/^    \(replication\|superuser\|rewind\|unix_socket_directories\|\(\(  \)\{0,1\}\(username\|password\)\)\):/#&/' postgres?.yml \
     && sed -i 's/^postgresql:/&\n  basebackup:\n    checkpoint: fast/' postgres?.yml \
-    && sed -i 's|^      parameters:|&\n        max_connections: 100\n        shared_buffers: 16MB\n        ssl: "on"\n        ssl_ca_file: /etc/ssl/certs/ssl-cert-snakeoil.pem\n        ssl_cert_file: /etc/ssl/certs/ssl-cert-snakeoil.pem\n        ssl_key_file: /etc/ssl/private/ssl-cert-snakeoil.key\n        citus.node_conninfo: "sslrootcert=/etc/ssl/certs/ssl-cert-snakeoil.pem sslkey=/etc/ssl/private/ssl-cert-snakeoil.key sslcert=/etc/ssl/certs/ssl-cert-snakeoil.pem sslmode=verify-ca"|'  postgres?.yml \
+    && sed -i 's|^      parameters:|&\n        max_connections: 100\n        shared_buffers: 16MB|'  postgres?.yml \
     && sed -i 's/^      pg_hba:/&\n      - local all all trust/' postgres?.yml \
-    && sed -i 's/^\(.*\) \(.*\) \(.*\) \(.*\) \(.*\) md5.*$/\1 hostssl \3 \4 all md5 clientcert=verify-ca/' postgres?.yml \
-    && sed -i 's/^#\(ctl\|  certfile\|  keyfile\)/\1/' postgres?.yml \
-    && sed -i 's|^#  cafile: .*$|  verify_client: required\n  cafile: /etc/ssl/certs/ssl-cert-snakeoil.pem|' postgres?.yml \
-    && sed -i 's|^#  cacert: .*$|  cacert: /etc/ssl/certs/ssl-cert-snakeoil.pem|' postgres?.yml \
-    && sed -i 's/^#  insecure: .*/  insecure: on/' postgres?.yml \
+    && sed -i 's/^\(.*\) \(.*\) md5/\1 all md5/' postgres?.yml \
+    && sed -i 's/^#  insecure: .*/  insecure: false/' postgres?.yml \
     # client cert for HAProxy to access Patroni REST API
     && if [ "$COMPRESS" = "true" ]; then chmod u+s /usr/bin/sudo; fi \
     && chmod +s /bin/ping \
